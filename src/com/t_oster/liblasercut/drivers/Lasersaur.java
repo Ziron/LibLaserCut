@@ -39,6 +39,7 @@ import purejavacomm.SerialPort;
 public class Lasersaur extends LaserCutter {
 
   private static final String SETTING_COMPORT = "COM-Port/Device";
+  private static final String SETTING_BAUDRATE = "Serial baudrate";
   private static final String SETTING_BEDWIDTH = "Laserbed width";
   private static final String SETTING_BEDHEIGHT = "Laserbed height";
   private static final String SETTING_FLIPX = "X axis goes right to left (yes/no)";
@@ -126,7 +127,7 @@ public class Lasersaur extends LaserCutter {
   public void setFlipXaxis(boolean flipXaxis) {
     this.flipXaxis = flipXaxis;
   }
-  protected String comPort = "ttyUSB0";
+  protected String comPort = "/dev/ttyUSB0";
 
   /**
    * Get the value of port
@@ -144,6 +145,19 @@ public class Lasersaur extends LaserCutter {
    */
   public void setComPort(String comPort) {
     this.comPort = comPort;
+  }
+
+  protected int baudRate = 57600;
+
+  public int getBaudRate()
+  {
+    return baudRate;
+  }
+  
+
+  public void setBaudRate(int baudRate)
+  {
+    this.baudRate = baudRate;
   }
 
   private byte[] generateVectorGCode(VectorPart vp, double resolution) throws UnsupportedEncodingException {
@@ -175,6 +189,7 @@ public class Lasersaur extends LaserCutter {
 
   private void setSpeed(PrintStream out, int speedInPercent) {
     if (speedInPercent != currentSpeed) {
+      out.printf(Locale.US, "G0 F%d\n", (int) ((double) speedInPercent * this.getLaserRate() / 100));
       out.printf(Locale.US, "G1 F%d\n", (int) ((double) speedInPercent * this.getLaserRate() / 100));
       currentSpeed = speedInPercent;
     }
@@ -386,7 +401,7 @@ public class Lasersaur extends LaserCutter {
     }
     SerialPort port = (SerialPort) tmp;
     port.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
-    port.setSerialPortParams(9600, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+    port.setSerialPortParams(getBaudRate(), SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
     out = new BufferedOutputStream(port.getOutputStream());
     pl.taskChanged(this, "sending");
     writeJob(out, job, pl, port);
@@ -429,7 +444,9 @@ public class Lasersaur extends LaserCutter {
   public List<Double> getResolutions() {
     if (resolutions == null) {
       resolutions = Arrays.asList(new Double[]{
-                500d
+                250d,
+                500d,
+                1000d,
               });
     }
     return resolutions;
@@ -479,6 +496,7 @@ public class Lasersaur extends LaserCutter {
     SETTING_BEDHEIGHT,
     SETTING_FLIPX,
     SETTING_COMPORT,
+    SETTING_BAUDRATE,
     SETTING_LASER_RATE,
     SETTING_SEEK_RATE,
     SETTING_RASTER_WHITESPACE,
@@ -495,6 +513,8 @@ public class Lasersaur extends LaserCutter {
       return this.getAddSpacePerRasterLine();
     } else if (SETTING_COMPORT.equals(attribute)) {
       return this.getComPort();
+    } else if (SETTING_BAUDRATE.equals(attribute)) {
+      return this.getBaudRate();
     } else if (SETTING_FLIPX.equals(attribute)) {
       return this.isFlipXaxis();
     } else if (SETTING_LASER_RATE.equals(attribute)) {
@@ -515,6 +535,8 @@ public class Lasersaur extends LaserCutter {
       this.setAddSpacePerRasterLine((Double) value);
     } else if (SETTING_COMPORT.equals(attribute)) {
       this.setComPort((String) value);
+    } else if (SETTING_BAUDRATE.equals(attribute)) {
+      this.setBaudRate((Integer) value);
     } else if (SETTING_LASER_RATE.equals(attribute)) {
       this.setLaserRate((Double) value);
     } else if (SETTING_SEEK_RATE.equals(attribute)) {
@@ -532,6 +554,7 @@ public class Lasersaur extends LaserCutter {
   public LaserCutter clone() {
     Lasersaur clone = new Lasersaur();
     clone.comPort = comPort;
+    clone.baudRate = baudRate;
     clone.laserRate = laserRate;
     clone.seekRate = seekRate;
     clone.bedHeight = bedHeight;
@@ -543,6 +566,8 @@ public class Lasersaur extends LaserCutter {
 
   @Override
   public void saveJob(PrintStream fileOutputStream, LaserJob job) throws UnsupportedOperationException, IllegalJobException, Exception {
-      writeJob(new BufferedOutputStream(fileOutputStream), job, null, null);
+    currentPower = -1;
+    currentSpeed = -1;
+    writeJob(new BufferedOutputStream(fileOutputStream), job, null, null);
   }
 }
